@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 from prompts import system_prompt
-from callable_fns import available_functions
+from callable_fns import available_functions, call_function
 
 
 def main():
@@ -51,13 +51,20 @@ def generate_content(client, messages, user_prompt, verbose):
         print("Prompt tokens:", response.usage_metadata.prompt_token_count)
         print("Response tokens:", response.usage_metadata.candidates_token_count)
 
-    if response.function_calls:
-        for function_call in response.function_calls:
+    if not response.function_calls:
+        return print(f"Response:\n{response.text}")
+
+    for function_call in response.function_calls:
+        function_call_result = call_function(function_call, verbose)
+
+        if (not function_call_result.parts or
+            not function_call_result.parts[0].function_response or
+                not function_call_result.parts[0].function_response.response):
+            raise Exception("Invalid function response structure")
+
+        if verbose:
             print(
-                f"Calling function: {function_call.name}({function_call.args})")
-    else:
-        print("Response:")
-        print(response.text)
+                f"-> {function_call_result.parts[0].function_response.response}")
 
 
 if __name__ == "__main__":
